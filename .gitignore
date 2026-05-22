@@ -1,0 +1,26 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Generated outputs
+color_*.png
+foto_con_marca.jpg
+logo_transparente.png
+logo_negro_transparente.png
+logo_blanco_transparente.png
+logo_bn.png
+logo_icono.png
+logo_insta.png
+logo_web.webp
+logo_vector.svg
+marca_temp.png
+temp_logo.bmp
+logo_bn_temp.png
+logo_insta_temp.png
+logo_negro_temp.png
+logo_blanco_temp.png
+
+# Personal/local inputs
+logo.png
+tu_foto.jpg
+comando.txt
