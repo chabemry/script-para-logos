@@ -1,3 +1,4 @@
+import argparse
 import os
 import re
 import subprocess
@@ -8,11 +9,9 @@ try:
 except ImportError:
     ollama = None
 
-# Configuracion de archivos
-logo = "logo.png"
-logo_limpio = "logo_transparente.png"
-imagen_a_procesar = "tu_foto.jpg"
-logo_vector = "logo_vector.svg"
+# Configuracion por defecto
+DEFAULT_LOGO = "logo.png"
+DEFAULT_FOTO = "tu_foto.jpg"
 UPSCALE_BASE = "400%"
 BORDE_HD = "200x200"
 MUESTRA_COLOR_SIZE = "1200x1200"
@@ -42,6 +41,54 @@ def rgb_a_hex(r, g, b):
 
 def brillo_aproximado(r, g, b):
     return (0.299 * r) + (0.587 * g) + (0.114 * b)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Procesa cualquier logo para generar variantes en alta resolucion."
+    )
+    parser.add_argument(
+        "--logo",
+        default=DEFAULT_LOGO,
+        help="Ruta del logo principal. Por defecto usa logo.png",
+    )
+    parser.add_argument(
+        "--foto",
+        default=DEFAULT_FOTO,
+        help="Ruta opcional de la foto para aplicar marca de agua. Por defecto usa tu_foto.jpg",
+    )
+    parser.add_argument(
+        "--prefijo",
+        default="",
+        help="Prefijo opcional para los archivos generados.",
+    )
+    return parser.parse_args()
+
+
+def construir_salidas(logo_path, prefijo=""):
+    base_name = os.path.splitext(os.path.basename(logo_path))[0]
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "_", base_name).strip("_").lower() or "logo"
+    if prefijo:
+        slug = f"{prefijo}_{slug}"
+
+    return {
+        "slug": slug,
+        "logo_limpio": f"{slug}_transparente.png",
+        "logo_vector": f"{slug}_vector.svg",
+        "logo_negro": f"{slug}_negro_transparente.png",
+        "logo_blanco": f"{slug}_blanco_transparente.png",
+        "logo_bn": f"{slug}_bn.png",
+        "logo_icono": f"{slug}_icono.png",
+        "logo_insta": f"{slug}_insta.png",
+        "logo_web": f"{slug}_web.webp",
+        "foto_con_marca": f"{slug}_foto_con_marca.jpg",
+        "marca_temp": f"{slug}_marca_temp.png",
+        "temp_bmp": f"{slug}_temp_logo.bmp",
+        "logo_bn_temp": f"{slug}_bn_temp.png",
+        "logo_insta_temp": f"{slug}_insta_temp.png",
+        "logo_negro_temp": f"{slug}_negro_temp.png",
+        "logo_blanco_temp": f"{slug}_blanco_temp.png",
+    }
 
 
 def extraer_paleta_desde_logo(input_file, max_colors=5):
@@ -126,10 +173,9 @@ def extraer_paleta_desde_logo(input_file, max_colors=5):
     return paleta
 
 
-def vectorizar_logo():
+def vectorizar_logo(logo_limpio, logo_vector, temp_bmp):
     """Convierte el logo rasterizado en un SVG usando Potrace si esta disponible."""
     print("Intentando vectorizar logo para calidad infinita...")
-    temp_bmp = "temp_logo.bmp"
     run_magick(f"magick {logo_limpio} -threshold 50% -flip {temp_bmp}")
     try:
         subprocess.run(
@@ -164,9 +210,9 @@ def aplicar_nitidez_hd(input_file, output_file, resize_val=None):
     run_magick(cmd)
 
 
-def obtener_paleta_logo():
+def obtener_paleta_logo(logo_path):
     print("Extrayendo paleta real desde el logo...")
-    colores = extraer_paleta_desde_logo(logo)
+    colores = extraer_paleta_desde_logo(logo_path)
     if colores:
         print(f"Colores detectados desde el logo: {colores}")
         return colores
@@ -194,13 +240,20 @@ def obtener_paleta_logo():
 
 
 def ejecutar_todo():
+    args = parse_args()
+    logo = args.logo
+    imagen_a_procesar = args.foto
+    salidas = construir_salidas(logo, args.prefijo)
+    logo_limpio = salidas["logo_limpio"]
+    logo_vector = salidas["logo_vector"]
+
     if not os.path.exists(logo):
-        print("Error: No encuentro 'logo.png'.")
+        print(f"Error: No encuentro el logo '{logo}'.")
         return
 
     print("\n--- INICIANDO PRODUCCION MRY (ULTRA HD & VECTOR EDITION) ---")
 
-    colores = obtener_paleta_logo()
+    colores = obtener_paleta_logo(logo)
 
     print("Procesando imagenes con reconstruccion de bordes...")
     run_magick(
@@ -211,19 +264,19 @@ def ejecutar_todo():
         f"-define png:compression-level=9 {logo_limpio}"
     )
 
-    vectorizar_logo()
+    vectorizar_logo(logo_limpio, logo_vector, salidas["temp_bmp"])
 
     print("Generando versiones solidas transparentes...")
-    run_magick(f"magick {logo_limpio} -channel RGB -evaluate multiply 0 logo_negro_temp.png")
-    aplicar_nitidez_hd("logo_negro_temp.png", "logo_negro_transparente.png")
+    run_magick(f"magick {logo_limpio} -channel RGB -evaluate multiply 0 {salidas['logo_negro_temp']}")
+    aplicar_nitidez_hd(salidas["logo_negro_temp"], salidas["logo_negro"])
 
-    run_magick(f"magick {logo_limpio} -channel RGB -evaluate multiply 0 -negate logo_blanco_temp.png")
-    aplicar_nitidez_hd("logo_blanco_temp.png", "logo_blanco_transparente.png")
+    run_magick(f"magick {logo_limpio} -channel RGB -evaluate multiply 0 -negate {salidas['logo_blanco_temp']}")
+    aplicar_nitidez_hd(salidas["logo_blanco_temp"], salidas["logo_blanco"])
 
-    if os.path.exists("logo_negro_temp.png"):
-        os.remove("logo_negro_temp.png")
-    if os.path.exists("logo_blanco_temp.png"):
-        os.remove("logo_blanco_temp.png")
+    if os.path.exists(salidas["logo_negro_temp"]):
+        os.remove(salidas["logo_negro_temp"])
+    if os.path.exists(salidas["logo_blanco_temp"]):
+        os.remove(salidas["logo_blanco_temp"])
 
     for i, color in enumerate(colores):
         hex_color = color if color.startswith("#") else f"#{color}"
@@ -235,39 +288,43 @@ def ejecutar_todo():
     run_magick(
         f"magick {logo_limpio} -quality {WEBP_QUALITY} "
         f"-define webp:lossless=true -define webp:method=6 "
-        f"-define webp:exact=true logo_web.webp"
+        f"-define webp:exact=true {salidas['logo_web']}"
     )
 
-    run_magick(f"magick {logo_limpio} -grayscale Rec709Luma -contrast-stretch 0.15x0.15% logo_bn_temp.png")
-    aplicar_nitidez_hd("logo_bn_temp.png", "logo_bn.png")
-    if os.path.exists("logo_bn_temp.png"):
-        os.remove("logo_bn_temp.png")
+    run_magick(f"magick {logo_limpio} -grayscale Rec709Luma -contrast-stretch 0.15x0.15% {salidas['logo_bn_temp']}")
+    aplicar_nitidez_hd(salidas["logo_bn_temp"], salidas["logo_bn"])
+    if os.path.exists(salidas["logo_bn_temp"]):
+        os.remove(salidas["logo_bn_temp"])
 
-    aplicar_nitidez_hd(logo_limpio, "logo_icono.png", ICONO_SIZE)
+    aplicar_nitidez_hd(logo_limpio, salidas["logo_icono"], ICONO_SIZE)
 
     run_magick(
         f"magick {logo_limpio} -filter Lanczos -antialias -resize {INSTA_SIZE} "
-        f"-background white -gravity center -extent {INSTA_SIZE} logo_insta_temp.png"
+        f"-background white -gravity center -extent {INSTA_SIZE} {salidas['logo_insta_temp']}"
     )
-    aplicar_nitidez_hd("logo_insta_temp.png", "logo_insta.png")
-    if os.path.exists("logo_insta_temp.png"):
-        os.remove("logo_insta_temp.png")
+    aplicar_nitidez_hd(salidas["logo_insta_temp"], salidas["logo_insta"])
+    if os.path.exists(salidas["logo_insta_temp"]):
+        os.remove(salidas["logo_insta_temp"])
 
     if os.path.exists(imagen_a_procesar):
         run_magick(
             f"magick {logo_limpio} -filter Lanczos -resize {WATERMARK_SCALE} "
             f"-channel A -blur 0x0.35 +channel "
-            f"-unsharp 0x0.4+0.4+0.02 marca_temp.png"
+            f"-unsharp 0x0.4+0.4+0.02 {salidas['marca_temp']}"
         )
         run_magick(
-            f"magick {imagen_a_procesar} marca_temp.png -gravity southeast -geometry +20+20 "
+            f"magick {imagen_a_procesar} {salidas['marca_temp']} -gravity southeast -geometry +20+20 "
             f"-compose dissolve -define compose:args=60 -composite "
-            f"-quality {JPEG_QUALITY} -sampling-factor 4:4:4 foto_con_marca.jpg"
+            f"-quality {JPEG_QUALITY} -sampling-factor 4:4:4 {salidas['foto_con_marca']}"
         )
-        if os.path.exists("marca_temp.png"):
-            os.remove("marca_temp.png")
+        if os.path.exists(salidas["marca_temp"]):
+            os.remove(salidas["marca_temp"])
 
     print("\n--- PRODUCCION FINALIZADA CON EXITO (CALIDAD INFINITA) ---")
+    print(f"Logo procesado: {logo}")
+    if os.path.exists(imagen_a_procesar):
+        print(f"Foto procesada: {imagen_a_procesar}")
+    print(f"Prefijo de salida: {salidas['slug']}")
     print("Entregables: paleta real del logo, PNG transparentes, WebP, icono, Insta y marca de agua.")
 
 

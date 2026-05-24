@@ -15,25 +15,36 @@ Script en Python para limpiar un logo, generar variantes en alta resolucion y cr
 
 ## Uso
 
-Coloca en esta carpeta:
-
-- `logo.png`
-- `tu_foto.jpg` (opcional)
-
-Luego ejecuta:
+Puedes usar los nombres por defecto:
 
 ```powershell
 python .\diseno_ia.py
 ```
 
+O pasar cualquier logo y cualquier foto:
+
+```powershell
+python .\diseno_ia.py --logo .\mi_logo.png --foto .\mi_foto.jpg
+```
+
+Tambien puedes agregar un prefijo para separar salidas:
+
+```powershell
+python .\diseno_ia.py --logo .\mi_logo.png --foto .\mi_foto.jpg --prefijo cliente1
+```
+
+Si no envias parametros, el script intentara usar:
+
+- `logo.png`
+- `tu_foto.jpg` (opcional)
+
 ## Salidas esperadas
 
-- `logo_transparente.png`
-- `logo_negro_transparente.png`
-- `logo_blanco_transparente.png`
-- `logo_bn.png`
-- `logo_icono.png`
-- `logo_insta.png`
-- `logo_web.webp`
-- `foto_con_marca.jpg` si existe `tu_foto.jpg`
-
+- `<nombre_logo>_transparente.png`
+- `<nombre_logo>_negro_transparente.png`
+- `<nombre_logo>_blanco_transparente.png`
+- `<nombre_logo>_bn.png`
+- `<nombre_logo>_icono.png`
+- `<nombre_logo>_insta.png`
+- `<nombre_logo>_web.webp`
+- `<nombre_logo>_foto_con_marca.jpg` si existe una foto
